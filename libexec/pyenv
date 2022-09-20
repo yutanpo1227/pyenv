@@ -20,41 +20,6 @@ abort() {
   exit 1
 }
 
-if enable -f "${BASH_SOURCE%/*}"/../libexec/pyenv-realpath.dylib realpath 2>/dev/null; then
-  abs_dirname() {
-    local path
-    path="$(realpath "$1")"
-    echo "${path%/*}"
-  }
-else
-  [ -z "$PYENV_NATIVE_EXT" ] || abort "failed to load \`realpath' builtin"
-
-  READLINK=$(type -P greadlink readlink | head -1)
-  [ -n "$READLINK" ] || abort "cannot find readlink - are you missing GNU coreutils?"
-
-  resolve_link() {
-    $READLINK "$1"
-  }
-
-  abs_dirname() {
-    local path="$1"
-
-    # Use a subshell to avoid changing the current path
-    (
-    while [ -n "$path" ]; do
-      cd_path="${path%/*}"
-      if [[ "$cd_path" != "$path" ]]; then
-        cd "$cd_path"
-      fi
-      name="${path##*/}"
-      path="$(resolve_link "$name" || true)"
-    done
-
-    echo "$PWD"
-    )
-  }
-fi
-
 if [ -z "${PYENV_ROOT}" ]; then
   PYENV_ROOT="${HOME}/.pyenv"
 else
@@ -76,7 +41,8 @@ export PYENV_DIR
 
 shopt -s nullglob
 
-bin_path="$(abs_dirname "$0")"
+pyenv_bin="${BASH_SOURCE:-$0}"
+bin_path="$(cd "${pyenv_bin%/*}"/../libexec && pwd -P)"
 for plugin_bin in "${bin_path%/*}"/plugins/*/bin; do
   PATH="${plugin_bin}:${PATH}"
 done
